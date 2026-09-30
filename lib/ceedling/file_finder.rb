@@ -22,7 +22,7 @@ class FileFinder
   # priority -- TEST_INCLUDE_PATH() ranked ahead of :support/:include, as a real compile would
   # see it. Absent that (a caller with no single test in view, e.g. Partializer resolving a
   # module generically), the project-wide collection_all_headers is the only sensible fallback.
-  def find_header_input_for_mock(mock, collection: nil)
+  def find_header_input_for_mock(mock, collection: nil, search_paths: nil)
     # Mock name/path => <mock prefix><header filename (.h)>, optionally preceded by however
     # much path the #include itself carried (e.g. 'Mockfoo.h' or 'drivers/Mockfoo.h').
     # Note: In some rare cases, a mock name may include a dot (ex. Sensor.44) because of versioning file naming convention
@@ -35,6 +35,9 @@ class FileFinder
     dir      = File.dirname(mock)
     basename = File.basename(mock).delete_prefix(@configurator.cmock_mock_prefix)
     header   = dir == '.' ? basename : File.join(dir, basename)
+
+    found_path = find_header_in_search_paths(header, search_paths)
+    return found_path unless found_path.nil?
 
     found_path = @file_finder_helper.resolve_file_in_collection(
       header,
@@ -51,10 +54,30 @@ class FileFinder
   # also needs (or can reuse) the header path it was derived from, and every caller placing
   # a mock's own files -- its search path, an early stand-in for it, or its real generated
   # content -- must agree on exactly the same subdirectory for that mock to ever compile.
-  def resolve_mock(mock, collection: nil)
-    source = find_header_input_for_mock(mock, collection: collection)
+  def resolve_mock(mock, collection: nil, search_paths: nil)
+    source = find_header_input_for_mock(mock, collection: collection, search_paths: search_paths)
     subdir = PathMirror.relative_subdir(source, @configurator.paths_test + @configurator.paths_support + @configurator.paths_include)
     return [source, subdir]
+  end
+
+  # An #include spelled with a path (`drivers/uart.h`) is found by the compiler as
+  # `<search path>/<spelling>`, first match in search-path order -- no search path needs to
+  # point at the header's own directory. A query already resolved to a real file below one of
+  # the search paths (e.g. from preprocessor line markers) is returned as is. Bare names and
+  # anything not found this way are left to collection matching.
+  def find_header_in_search_paths(query, search_paths)
+    return nil if search_paths.nil? or File.dirname(query) == '.'
+
+    if @file_wrapper.exist?(query)
+      return query if search_paths.any? { |path| query.start_with?( File.join(path, '') ) }
+    end
+
+    search_paths.each do |path|
+      candidate = File.join(path, query)
+      return candidate if @file_wrapper.exist?(candidate)
+    end
+
+    return nil
   end
 
 

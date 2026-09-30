@@ -144,7 +144,7 @@ describe TestBuildPlanner do
           .with( 'test/TestFoo.c' ).and_return( [mock] )
         allow(@configurator).to receive(:cmock_mock_prefix).and_return( 'Mock' )
         allow(@file_finder).to receive(:resolve_mock)
-          .with( 'MockFoo.h', collection: [] ).and_return( ['src/drivers/foo.h', 'drivers'] )
+          .with( 'MockFoo.h', collection: [], search_paths: [] ).and_return( ['src/drivers/foo.h', 'drivers'] )
         allow(@file_path_utils).to receive(:form_preprocessed_file_filepath)
           .with( 'src/drivers/foo.h', 'a_test' ).and_return( 'build/test/preprocess/files/a_test/full_expansion/foo.h' )
       end
@@ -437,7 +437,20 @@ describe TestBuildPlanner do
       allow(@include_pathinator).to receive(:ordered_header_files)
         .with( ['inc', 'src'] ).and_return( ['inc/drivers/foo.h'] )
 
+      allow(@file_finder).to receive(:find_header_in_search_paths).with( 'drivers/foo.h', ['inc', 'src'] ).and_return( nil )
       expect(@file_finder).to receive(:find_header_file).with( 'drivers/foo.h', :error, collection: ['inc/drivers/foo.h'] )
+
+      @planner.validate_header_includes( test_filepath: 'test/TestFoo.c', testable: @testable )
+    end
+
+    it "accepts an #include whose written path resolves below one of this test's search paths" do
+      allow(@test_context_extractor).to receive(:lookup_nonmock_header_includes_list)
+        .with( 'test/TestFoo.c' ).and_return( [UserInclude.new('drivers/foo.h')] )
+      @testable.search_paths = ['inc']
+      allow(@include_pathinator).to receive(:ordered_header_files).and_return( [] )
+      allow(@file_finder).to receive(:find_header_in_search_paths).with( 'drivers/foo.h', ['inc'] ).and_return( 'inc/drivers/foo.h' )
+
+      expect(@file_finder).to_not receive(:find_header_file)
 
       @planner.validate_header_includes( test_filepath: 'test/TestFoo.c', testable: @testable )
     end

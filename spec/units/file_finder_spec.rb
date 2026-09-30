@@ -194,6 +194,44 @@ describe FileFinder do
     end
   end
 
+  describe '#find_header_in_search_paths' do
+    before(:each) do
+      allow(@file_wrapper).to receive(:exist?).and_return( false )
+    end
+
+    it 'resolves a path-spelled query below the first search path where it exists' do
+      allow(@file_wrapper).to receive(:exist?).with( 'lib/drivers/uart.h' ).and_return( true )
+      allow(@file_wrapper).to receive(:exist?).with( 'vendor/drivers/uart.h' ).and_return( true )
+
+      expect( @file_finder.find_header_in_search_paths('drivers/uart.h', ['inc', 'lib', 'vendor']) )
+        .to eq('lib/drivers/uart.h')
+    end
+
+    it 'returns a query already resolved below one of the search paths as is' do
+      allow(@file_wrapper).to receive(:exist?).with( 'lib/drivers/uart.h' ).and_return( true )
+
+      expect( @file_finder.find_header_in_search_paths('lib/drivers/uart.h', ['lib']) )
+        .to eq('lib/drivers/uart.h')
+    end
+
+    it 'leaves bare names and unresolvable paths to collection matching' do
+      expect( @file_finder.find_header_in_search_paths('uart.h', ['lib']) ).to be_nil
+      expect( @file_finder.find_header_in_search_paths('drivers/uart.h', ['lib']) ).to be_nil
+      expect( @file_finder.find_header_in_search_paths('drivers/uart.h', nil) ).to be_nil
+    end
+  end
+
+  describe '#find_header_input_for_mock with search paths' do
+    it 'resolves a path-spelled mock compiler-style before collection matching' do
+      allow(@configurator).to receive(:cmock_mock_prefix).and_return( 'mock_' )
+      allow(@file_wrapper).to receive(:exist?).and_return( false )
+      allow(@file_wrapper).to receive(:exist?).with( 'lib/drivers/clock.h' ).and_return( true )
+
+      expect( @file_finder.find_header_input_for_mock('drivers/mock_clock.h', collection: [], search_paths: ['lib']) )
+        .to eq('lib/drivers/clock.h')
+    end
+  end
+
   describe '#find_assembly_file' do
     it 'tries every configured extension in turn, still resolving a unique match' do
       allow(@configurator).to receive(:extension_assembly).and_return( FilenameExtension.new(['.s', '.S']) )

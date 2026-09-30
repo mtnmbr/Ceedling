@@ -414,7 +414,8 @@ class TestBuildSetup
         user:          user_includes,
         system:        system_includes,
         test_filepath: filepath,
-        drop_mocked:   false
+        drop_mocked:   false,
+        search_paths:  testable.search_paths
       )
 
       header = "Extracted reconciled #include list from #{filepath}:"
@@ -462,6 +463,7 @@ class TestBuildSetup
     collection = @include_pathinator.ordered_header_files(
       testable.search_paths - testable.mock_search_paths
     )
+    mock_search_paths = testable.search_paths - testable.mock_search_paths
 
     mocks.each do |include|
       # A Partial mock is Ceedling's own generated content with no real header to resolve
@@ -472,7 +474,7 @@ class TestBuildSetup
       if mock_partial?( include )
         filepath = @file_path_utils.form_mock_header_filepath( test, include.filepath )
       else
-        _source, subdir = @file_finder.resolve_mock( include.filepath, collection: collection )
+        _source, subdir = @file_finder.resolve_mock( include.filepath, collection: collection, search_paths: mock_search_paths )
         mock_dir = subdir.empty? ? test : File.join( test, subdir )
         filepath = @file_path_utils.form_mock_header_filepath( mock_dir, include.filename )
       end
@@ -517,14 +519,13 @@ class TestBuildSetup
     # resolve each of these same mocks identically, so both reconstruct this exact ordering by
     # subtracting testable.mock_search_paths back out of the real testable.search_paths once it
     # exists, rather than each independently re-deriving it.
-    collection = @include_pathinator.ordered_header_files(
-      search_paths( testable.filepath, testable.paths, [] )
-    )
+    _search_paths = search_paths( testable.filepath, testable.paths, [] )
+    collection = @include_pathinator.ordered_header_files( _search_paths )
 
     dirs = []
     @context_extractor.lookup_mock_header_includes_list( testable.filepath ).each do |include|
       next if mock_partial?( include )
-      _source, subdir = @file_finder.resolve_mock( include.filepath, collection: collection )
+      _source, subdir = @file_finder.resolve_mock( include.filepath, collection: collection, search_paths: _search_paths )
       dirs << (subdir.empty? ? testable.paths[:mocks] : File.join( testable.paths[:mocks], subdir ))
     end
     return dirs.uniq

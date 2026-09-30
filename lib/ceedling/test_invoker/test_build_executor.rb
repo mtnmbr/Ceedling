@@ -201,6 +201,13 @@ class TestBuildExecutor
         overrides:      overrides
       }
 
+      # With the header's mirroring root itself a search path, the mock can #include the
+      # header by its path below that root -- no search path at the header's own directory
+      if !details.partial and !details.path.empty? and root_search_path?( details, testable )
+        arg_hash[:output_path] = testable.paths[:mocks]
+        arg_hash[:folder]      = details.path
+      end
+
       @generator.generate_mock( **arg_hash )
 
       @dependinator.mark_fresh( target )
@@ -380,7 +387,7 @@ class TestBuildExecutor
       arg_hash = {
         context:         state.context,
         mocks:           @context_extractor.lookup_mock_header_includes_list( testable.filepath ),
-        includes:        @context_extractor.lookup_nonmock_header_includes_list( testable.filepath ),
+        includes:        runner_includes( testable ),
         test_filepath:   testable.filepath,
         input_filepath:  testable.runner.input_filepath,
         runner_filepath: target
@@ -727,6 +734,30 @@ class TestBuildExecutor
   end
 
   private
+
+  # Includes extracted from the test file's text (no preprocessing) carry their written
+  # spelling; one resolving as `<search path>/<spelling>` is rendered into the runner as is
+  def runner_includes(testable)
+    return @context_extractor.lookup_nonmock_header_includes_list( testable.filepath ).map do |include|
+      next include unless include.instance_of?( UserInclude ) and include.include_path.nil?
+
+      spelling = include.filepath
+      next include if File.dirname( spelling ) == '.' or spelling.split(/[\\\/]/).include?( '..' )
+      next include unless testable.search_paths.any? { |path| @file_wrapper.exist?( File.join( path, spelling ) ) }
+
+      UserInclude.new( spelling, include_path: spelling )
+    end
+  end
+
+  # Whether the configured root a mock's real header is mirrored below (`lib` for
+  # `lib/drivers/uart.h` mirrored as `drivers`) is itself one of the test's search paths
+  def root_search_path?(details, testable)
+    suffix = File.join( '', details.path, File.basename( details.source ) )
+    return false unless details.source.end_with?( suffix )
+
+    root = details.source.delete_suffix( suffix )
+    return testable.search_paths.include?( root )
+  end
 
   # Compile a single C or assembly source file into an object file. Returns
   # whether a real compile actually happened, so the caller can report how

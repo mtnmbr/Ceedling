@@ -58,7 +58,11 @@ class TestBuildPlanner
           source = generate_header_input_for_mock_partial( include, test )
           input  = source
         else
-          source, subdir     = @file_finder.resolve_mock( include.filepath, collection: ordered_mock_header_collection( testable ) )
+          source, subdir     = @file_finder.resolve_mock(
+            include.filepath,
+            collection:   ordered_mock_header_collection( testable ),
+            search_paths: testable.search_paths - testable.mock_search_paths
+          )
           preprocessed_input = @file_path_utils.form_preprocessed_file_filepath( source, test )
           input             = (@configurator.project_use_test_preprocessor_mocks ? preprocessed_input : source)
         end

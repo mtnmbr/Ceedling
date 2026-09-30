@@ -65,6 +65,7 @@ module TestBuildValidations
       next if include.filename == UNITY_H_FILE
       next if include.filename == CEEDLING_HEADER_FILENAME
       next if include.filename.start_with?( PARTIAL_FILENAME_PREFIX )
+      next if @file_finder.find_header_in_search_paths( include.filepath, testable.search_paths )
 
       @file_finder.find_header_file( include.filepath, :error, collection: collection )
     end

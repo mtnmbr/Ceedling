@@ -620,7 +620,8 @@ class Preprocessinator
     )
 
     includes = reconcile_includes(
-      bare: bare_includes, user: user_includes, system: system_includes, test_filepath: filepath
+      bare: bare_includes, user: user_includes, system: system_includes, test_filepath: filepath,
+      search_paths: include_paths
     )
 
     store_includes_list( filepath: filepath, test: test, includes: includes )
@@ -635,7 +636,7 @@ class Preprocessinator
   # `preprocess_file_includes_common` above and stage 4's test-file pass
   # (test_build_setup.rb) build their own three lists and own their own caching; only
   # this middle is common.
-  def reconcile_includes(bare:, user:, system:, test_filepath:, drop_mocked: true)
+  def reconcile_includes(bare:, user:, system:, test_filepath:, drop_mocked: true, search_paths: [])
     includes = Includes.reconcile(
       bare: bare, user: user, system: system, test_filepath: test_filepath
     ) do |bare_filepath, chosen, passed_over|
@@ -645,6 +646,8 @@ class Preprocessinator
             "watch for a compilation error naming the real mismatch."
       @loginator.log( msg, Verbosity::COMPLAIN, LogLabels::NOTICE )
     end
+
+    includes = keep_search_path_spellings( includes, bare, search_paths )
 
     if drop_mocked
       Includes.sanitize!( includes ) do |include, all|
@@ -662,5 +665,30 @@ class Preprocessinator
   # `reconcile_includes` is the merge step stage 4's test-file pass calls too.
   # Re-publicized here rather than relocated to keep the diff small.
   public :preprocess_file_includes_common, :reconcile_includes
+
+  # A user #include written with a path (`drivers/uart.h`) is rendered back into generated
+  # files (runners, Partials) with that same spelling whenever the compiler resolves it as
+  # `<search path>/<spelling>` to the file actually included -- with only a root on the search
+  # path, the bare filename reconcile otherwise renders would no longer be found.
+  def keep_search_path_spellings(includes, bare, search_paths)
+    return includes if search_paths.nil? or search_paths.empty?
+
+    return includes.map do |include|
+      next include unless include.instance_of?( UserInclude )
+
+      spelling = bare.map(&:filepath).find do |filepath|
+        File.dirname( filepath ) != '.' and
+        !filepath.split(/[\\\/]/).include?( '..' ) and
+        PathMatcher.correspond?( filepath, include.filepath )
+      end
+      next include if spelling.nil?
+
+      resolved = search_paths.map { |path| File.join( path, spelling ) }.find { |filepath| File.exist?( filepath ) }
+      next include if resolved.nil?
+      next include if File.exist?( include.filepath ) and File.expand_path( resolved ) != File.expand_path( include.filepath )
+
+      UserInclude.new( include.filepath, include_path: spelling )
+    end
+  end
 
 end

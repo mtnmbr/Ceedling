@@ -512,7 +512,7 @@ describe TestBuildSetup do
         allow(@preprocessinator).to receive(:preprocess_bare_includes).and_return( [ Include.new('MockFoo.h') ] )
 
         expect(@include_pathinator).to receive(:ordered_header_files).with( ['src'] ).and_return( ['src/Foo.h'] )
-        expect(@file_finder).to receive(:resolve_mock).with( 'MockFoo.h', collection: ['src/Foo.h'] ).and_return( ['src/Foo.h', ''] )
+        expect(@file_finder).to receive(:resolve_mock).with( 'MockFoo.h', collection: ['src/Foo.h'], search_paths: ['src'] ).and_return( ['src/Foo.h', ''] )
 
         @setup.stage_collect_preprocessor_context( @state )
       end
@@ -605,8 +605,8 @@ describe TestBuildSetup do
       bar_mock = MockInclude.new('MockBar.h')
       allow(@test_context_extractor).to receive(:lookup_mock_header_includes_list)
         .with('test/TestFoo.c').and_return( [foo_mock, bar_mock] )
-      allow(@file_finder).to receive(:resolve_mock).with('MockFoo.h', collection: []).and_return( ['src/drivers/foo.h', 'drivers'] )
-      allow(@file_finder).to receive(:resolve_mock).with('MockBar.h', collection: []).and_return( ['src/drivers/bar.h', 'drivers'] )
+      allow(@file_finder).to receive(:resolve_mock).with('MockFoo.h', collection: [], search_paths: anything).and_return( ['src/drivers/foo.h', 'drivers'] )
+      allow(@file_finder).to receive(:resolve_mock).with('MockBar.h', collection: [], search_paths: anything).and_return( ['src/drivers/bar.h', 'drivers'] )
 
       result = @setup.collect_mock_search_paths( @testable )
 
@@ -625,7 +625,7 @@ describe TestBuildSetup do
       expect(@include_pathinator).to receive(:ordered_header_files)
         .with( ['build/test/mocks/a_test', 'other_inc', 'src'] ).and_return( ['other_inc/foo.h'] )
       expect(@file_finder).to receive(:resolve_mock)
-        .with('MockFoo.h', collection: ['other_inc/foo.h']).and_return( ['other_inc/foo.h', ''] )
+        .with('MockFoo.h', collection: ['other_inc/foo.h'], search_paths: ['build/test/mocks/a_test', 'other_inc', 'src']).and_return( ['other_inc/foo.h', ''] )
 
       @setup.collect_mock_search_paths( @testable )
     end
@@ -634,7 +634,7 @@ describe TestBuildSetup do
       foo_mock = MockInclude.new('MockFoo.h')
       allow(@test_context_extractor).to receive(:lookup_mock_header_includes_list)
         .with('test/TestFoo.c').and_return( [foo_mock] )
-      allow(@file_finder).to receive(:resolve_mock).with('MockFoo.h', collection: []).and_return( ['src/foo.h', ''] )
+      allow(@file_finder).to receive(:resolve_mock).with('MockFoo.h', collection: [], search_paths: anything).and_return( ['src/foo.h', ''] )
 
       result = @setup.collect_mock_search_paths( @testable )
 
