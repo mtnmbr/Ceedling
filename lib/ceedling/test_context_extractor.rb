@@ -6,6 +6,7 @@
 # =========================================================================
 
 require 'ceedling/exceptions'
+require 'ceedling/includes/includes'
 require 'ceedling/partials/partials'
 require 'ceedling/file_path_utils'
 require 'ceedling/generators/generator_test_runner' # From lib/ not vendor/unity/auto
@@ -351,7 +352,10 @@ class TestContextExtractor
     partials_config.each do |_module, config|
       if config.tests.present?
         filename = @file_path_utils.form_partial_implementation_header_filename( _module )
-        includes << @include_factory.user_include_from_filepath( filename )
+        # A path-qualified module's implementation header is #included with its path
+        includes << ((File.dirname( filename ) == '.') ?
+          @include_factory.user_include_from_filepath( filename ) :
+          UserInclude.new( filename, include_path: filename ))
       end
 
       if config.mocks.present?

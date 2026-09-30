@@ -201,6 +201,14 @@ class TestBuildExecutor
         overrides:      overrides
       }
 
+      # A path-qualified Partial's interface header is only reachable with its path (from the
+      # test's Partials build path), so CMock writes the mock into that folder below the mock
+      # root and #includes the interface header with it
+      if details.partial and !details.path.empty?
+        arg_hash[:output_path] = testable.paths[:mocks]
+        arg_hash[:folder]      = details.path
+      end
+
       @generator.generate_mock( **arg_hash )
 
       @dependinator.mark_fresh( target )

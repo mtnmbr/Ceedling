@@ -100,7 +100,7 @@ class PartializerConfig
         next
       end
 
-      mod = _strip_quotes(params[0])
+      mod = _module_from_params(macro_name, params)
       configs[mod] ||= Config.new(module: mod)
 
       case macro_name
@@ -133,12 +133,7 @@ class PartializerConfig
 
     # --- Pass 2: CONFIG macros ---
     config_calls.each do |macro_name, params|
-      mod = _strip_quotes(params[0])
-      unless configs.key?(mod)
-        raise CeedlingException.new(
-          "#{macro_name} references module '#{mod}' but no corresponding MODULE Partial macro directive for that module was found"
-        )
-      end
+      mod = _resolve_config_module(macro_name, _strip_quotes(params[0].to_s.strip), configs)
 
       target = macro_name.start_with?('TEST_') ? configs[mod].tests : configs[mod].mocks
 
@@ -156,6 +151,16 @@ class PartializerConfig
     end
 
     # --- Pass 3: Validation ---
+    # Generated files, preprocessing output and objects of a test are keyed by module name,
+    # so a path may select a module but cannot yet tell two same-named modules apart
+    configs.keys.group_by { |key| File.basename(key) }.each_value do |same_named|
+      next if same_named.length < 2
+      raise CeedlingException.new(
+        "Partials of same-named modules #{same_named.join(', ')} in one test file are not supported -- " \
+        "split them into separate test files"
+      )
+    end
+
     configs.each do |mod, config|
       if config.tests.type == ACCUMULATE && config.tests.additions.empty?
         raise CeedlingException.new(
@@ -204,6 +209,46 @@ class PartializerConfig
     return if partial_functions.type.nil?
     raise CeedlingException.new(
       "Partial for module '#{mod}' was declared with '#{macro_name}', but it was already declared and can only be declared once."
+    )
+  end
+
+  # A MODULE macro names its module as `(module)` or, path-qualified, as `(path, module)`.
+  # The path form is keyed as `path/module` -- the same trailing-path query FileFinder
+  # matches headers and sources against -- so same-named modules in different
+  # directories stay distinct.
+  def _module_from_params(macro_name, params)
+    parts = params.map { |param| _strip_quotes(param.to_s.strip) }
+
+    unless [1, 2].include?(parts.length) && parts.none?(&:empty?)
+      raise CeedlingException.new(
+        "#{macro_name}() expects `(module)` or `(path, module)` but was given `(#{params.join(', ')})`"
+      )
+    end
+
+    return parts.first if parts.length == 1
+
+    path, name = parts
+    if name.match?(/[\\\/]/)
+      raise CeedlingException.new(
+        "#{macro_name}(#{path}, #{name}) ⏩️ The module name must not contain a path; put the whole path in the first argument"
+      )
+    end
+
+    return File.join(path.delete_suffix('/'), name)
+  end
+
+  # A CONFIG macro refers to its module by the same key its MODULE macro produced
+  # (`module` or `path/module`); a bare name also matches a path-qualified module.
+  def _resolve_config_module(macro_name, mod, configs)
+    return mod if configs.key?(mod)
+
+    unless mod.match?(/[\\\/]/)
+      match = configs.keys.find { |key| File.basename(key) == mod }
+      return match unless match.nil?
+    end
+
+    raise CeedlingException.new(
+      "#{macro_name} references module '#{mod}' but no corresponding MODULE Partial macro directive for that module was found"
     )
   end
 

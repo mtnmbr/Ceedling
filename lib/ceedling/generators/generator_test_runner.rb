@@ -56,9 +56,13 @@ class GeneratorTestRunner
       # are exposed to the compiler as a flat list of -I search paths, not nested to
       # match whatever directory component a captured UserInclude's filepath happens to
       # carry -- rendering the full path here breaks resolution instead of fixing it.
+      # The exception is a path-qualified Partial's generated header: it lives in a
+      # subdirectory of the test's own Partials build path and carries that as include_path.
       includes.map do |include|
         if include.is_a?(SystemInclude)
           "<#{include.include_path || include.filepath}>"
+        elsif include.filename.start_with?(PARTIAL_FILENAME_PREFIX) && include.include_path
+          include.include_path
         else
           include.filename
         end

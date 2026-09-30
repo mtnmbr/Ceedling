@@ -80,7 +80,8 @@ module TestPipelineHelpers
   # every other source, rather than carving out a special case for whether the result of
   # compiling it is ever actually linked.
   def remove_partials_source_objects(objects, configs)
-    modules = configs.keys
+    # A path-qualified module (`path/module`) still compiles to `module`'s own object
+    modules = configs.keys.map { |_module| File.basename( _module ) }
     objects.delete_if do |filepath|
       modules.include?( File.basename( filepath ).ext() )
     end

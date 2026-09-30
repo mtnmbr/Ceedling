@@ -57,6 +57,10 @@ class TestBuildPlanner
         if partial
           source = generate_header_input_for_mock_partial( include, test )
           input  = source
+          # A path-qualified Partial mock (`path/mock_<prefix>module_interface.h`) is generated
+          # into that same subdirectory below this test's mock root -- itself a search path
+          subdir = File.dirname( include.filepath )
+          subdir = '' if subdir == '.'
         else
           source, subdir     = @file_finder.resolve_mock( include.filepath, collection: ordered_mock_header_collection( testable ) )
           preprocessed_input = @file_path_utils.form_preprocessed_file_filepath( source, test )
@@ -67,8 +71,8 @@ class TestBuildPlanner
         # contains it -- the same directory this test's own search paths already carry
         # (collect_mock_search_paths, stage 2, ahead of stage 3), so the mock stays findable
         # by the compiler regardless of how much path the #include itself happened to spell
-        # out. A Partial mock has no real header to resolve against, so it stays flat -- the
-        # empty default `subdir` already reflects that.
+        # out. A Partial mock has no real header to resolve against, so it stays flat unless
+        # its module was path-qualified (above).
         mocks[name.to_sym] = MockDetails.new(
           name:     name,
           filepath: source,
@@ -275,7 +279,10 @@ class TestBuildPlanner
     # same generated basename would then collide as "ambiguous," even though each
     # unambiguously belongs to its own test.
     partials.tests.each do |_module|
-      sources << @file_finder.find_build_input_file( filepath: _module, complain: :ignore, context: context, test: test_name )
+      # The module's source was already resolved (relative to its header) for the Partial
+      # itself; a second, name-only lookup could pick a same-named source elsewhere
+      resolved = partials.configs[_module]&.source&.filepath
+      sources << (resolved || @file_finder.find_build_input_file( filepath: _module, complain: :ignore, context: context, test: test_name ))
     end
 
     sources = sources.compact.uniq
@@ -300,9 +307,15 @@ class TestBuildPlanner
   end
 
   def generate_header_input_for_mock_partial(mock, test)
+    # `filepath`, not `filename` -- a path-qualified Partial's interface header lives in its
+    # module's own subdirectory of the test's Partials build path
+    filepath = mock.filepath
+    dir      = File.dirname( filepath )
+    header   = File.basename( filepath ).delete_prefix( @configurator.cmock_mock_prefix )
+
     return @file_path_utils.form_partial_header_filepath(
       test,
-      mock.filename.delete_prefix( @configurator.cmock_mock_prefix )
+      (dir == '.') ? header : File.join( dir, header )
     )
   end
 

@@ -417,6 +417,8 @@ class TestBuildSetup
         drop_mocked:   false
       )
 
+      all_includes = qualify_partial_includes( all_includes, testable.paths[:partials] )
+
       header = "Extracted reconciled #include list from #{filepath}:"
       @loginator.log_list( all_includes, header, Verbosity::OBNOXIOUS )
 
@@ -432,6 +434,24 @@ class TestBuildSetup
     @include_pathinator.validate_test_build_directive_paths()
     headers = @include_pathinator.validate_header_files_collection()
     @include_pathinator.augment_environment_header_files( headers )
+  end
+
+  # A path-qualified Partial's generated header lives in a subdirectory of the test's own
+  # Partials build path (the search path), so the #include rendered for it (e.g. into the
+  # test runner) must keep that subdirectory rather than collapse to a bare filename.
+  def qualify_partial_includes(includes, partials_path)
+    return includes if partials_path.nil?
+
+    root = File.join( partials_path, '' )
+    return includes.map do |include|
+      next include unless include.instance_of?( UserInclude )
+      next include unless include.filename.start_with?( PARTIAL_FILENAME_PREFIX )
+
+      relative = include.filepath.delete_prefix( root )
+      next include if File.dirname( relative ) == '.'
+
+      UserInclude.new( include.filepath, include_path: relative )
+    end
   end
 
   # Writes placeholder header files for any mock or partial a test #includes,
@@ -490,7 +510,10 @@ class TestBuildSetup
     end
 
     partials.each do |include|
-      filepath = @file_path_utils.form_partial_header_filepath( test, include.filename )
+      # A path-qualified Partial's stand-in keeps its #include path as a subdirectory
+      subdir   = File.dirname( include.filepath )
+      subdir   = '' if subdir == '.'
+      filepath = @file_path_utils.form_partial_header_filepath( test, File.join( *[subdir, include.filename].reject(&:empty?) ) )
       next if @file_wrapper.exist?( filepath )
 
       msg = @reportinator.generate_module_progress(
@@ -499,6 +522,7 @@ class TestBuildSetup
         filename:    include.filename
       )
       @loginator.log( msg, Verbosity::DEBUG )
+      @file_wrapper.mkdir( File.dirname( filepath ) ) unless subdir.empty?
       @file_wrapper.write_blank_file( filepath )
     end
   end
