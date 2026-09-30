@@ -42,6 +42,76 @@ describe PartializerConfig do
     end
   end
 
+  context "#extract_configs with path-qualified modules" do
+    before(:each) do
+      code_text               = CExtractorCodeText.new
+      c_extractor_preprocessing = CExtractorPreprocessing.new({ c_extractor_code_text: code_text })
+      @config = described_class.new({ c_extractor_preprocessing: c_extractor_preprocessing })
+    end
+
+    it "keys a `(path, module)` MODULE macro as `path/module`" do
+      result = @config.extract_configs('TEST_PARTIAL_PRIVATE_MODULE(drivers/uart, config)')
+      expect( result.keys ).to eq ['drivers/uart/config']
+      expect( result['drivers/uart/config'].module ).to eq 'drivers/uart/config'
+      expect( result['drivers/uart/config'].tests.type ).to eq Partials::PRIVATE
+    end
+
+    it "ignores surrounding whitespace and a trailing slash in the path" do
+      result = @config.extract_configs('MOCK_PARTIAL_ALL_MODULE(  drivers/uart/ ,  config  )')
+      expect( result.keys ).to eq ['drivers/uart/config']
+      expect( result['drivers/uart/config'].mocks.type ).to eq Partials::DEDUCT
+    end
+
+    it "combines TEST and MOCK macros of the same path-qualified module" do
+      result = @config.extract_configs(
+        "TEST_PARTIAL_PRIVATE_MODULE(drivers/uart, config)\nMOCK_PARTIAL_PUBLIC_MODULE(drivers/uart, config)"
+      )
+      expect( result.keys ).to eq ['drivers/uart/config']
+      expect( result['drivers/uart/config'].tests.type ).to eq Partials::PRIVATE
+      expect( result['drivers/uart/config'].mocks.type ).to eq Partials::PUBLIC
+    end
+
+    it "applies a CONFIG macro naming the module by its path" do
+      result = @config.extract_configs(
+        "TEST_PARTIAL_MODULE(drivers/uart, config)\nTEST_PARTIAL_CONFIG(drivers/uart/config, scale)"
+      )
+      expect( result['drivers/uart/config'].tests.additions ).to eq ['scale']
+    end
+
+    it "applies a CONFIG macro naming a path-qualified module by its bare name" do
+      result = @config.extract_configs(
+        "MOCK_PARTIAL_ALL_MODULE(drivers/uart, config)\nMOCK_PARTIAL_CONFIG(config, -scale)"
+      )
+      expect( result['drivers/uart/config'].mocks.subtractions ).to eq ['scale']
+    end
+
+    it "raises when a CONFIG macro's path matches no MODULE macro" do
+      expect {
+        @config.extract_configs("TEST_PARTIAL_PRIVATE_MODULE(drivers/uart, config)\nTEST_PARTIAL_CONFIG(drivers/spi/config, scale)")
+      }.to raise_error(CeedlingException, /drivers\/spi\/config.*no corresponding MODULE/)
+    end
+
+    it "raises when the module name itself carries a path" do
+      expect {
+        @config.extract_configs('TEST_PARTIAL_PRIVATE_MODULE(drivers, uart/config)')
+      }.to raise_error(CeedlingException, /must not contain a path/)
+    end
+
+    it "raises for more than two MODULE macro arguments" do
+      expect {
+        @config.extract_configs('TEST_PARTIAL_PRIVATE_MODULE(drivers, uart, config)')
+      }.to raise_error(CeedlingException, /expects `\(module\)` or `\(path, module\)`/)
+    end
+
+    it "raises for two same-named modules in one test file" do
+      expect {
+        @config.extract_configs(
+          "TEST_PARTIAL_PRIVATE_MODULE(drivers/uart, config)\nTEST_PARTIAL_PRIVATE_MODULE(drivers/spi, config)"
+        )
+      }.to raise_error(CeedlingException, /same-named modules drivers\/uart\/config, drivers\/spi\/config/)
+    end
+  end
+
   context "#extract_configs_from_string" do
 
     before(:each) do

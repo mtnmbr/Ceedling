@@ -72,6 +72,44 @@ and none — tell Ceedling how to initialize internal function lists (that
 can be optionally modified) towards injecting the collected functions into 
 each Partial. 
 
+## Path-qualified modules
+
+A module name alone is ambiguous when your project contains same-named modules
+in different directories (e.g. `drivers/uart/config.{h,c}` and
+`drivers/spi/config.{h,c}`). Every `_MODULE` macro therefore also accepts the
+module's path as a first argument — the same path you would use to `#include`
+the module's header:
+
+```c
+#include "ceedling.h"
+
+#include TEST_PARTIAL_PRIVATE_MODULE(drivers/uart, config)
+// ↑ Expands to: #include "drivers/uart/ceedling_partial_config_impl.h"
+
+#include MOCK_PARTIAL_PUBLIC_MODULE(drivers/uart, config)
+// ↑ Expands to: #include "drivers/uart/mock_ceedling_partial_config_interface.h"
+```
+
+* The path is matched against the trailing directories of the module's header
+  and source file, exactly like a path in an `#include` of an ordinary header or
+  mock (e.g. `include/drivers/uart/config.h` and `src/drivers/uart/config.c`).
+* `_CONFIG` macros name a path-qualified module as `path/module`
+  (e.g. `TEST_PARTIAL_CONFIG(drivers/uart/config, +helper)`); the bare module
+  name works too.
+* Generated Partial files keep the path as a subdirectory of the test's own
+  Partials and mocks build directories, which are already search paths.
+* A test file can Partialize only one module of a given name. Two same-named
+  modules in one test file are rejected with an error; test them from
+  separate test files.
+
+Without a path, a module name that matches several same-named modules resolves
+to the first candidate, and Ceedling logs a notice naming the others.
+
+!!! warning "Macro arguments are expanded"
+    Path segments and module names pass through the C preprocessor. A segment
+    that happens to be a defined macro (e.g. `linux` with GNU extensions
+    enabled) is expanded before Ceedling sees it.
+
 ## Partials function-selection by macro
 
 Each test or mock Partial is independently configured by exactly

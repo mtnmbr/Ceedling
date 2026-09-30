@@ -81,6 +81,20 @@ describe Partializer do
       expect(configs['mod'].source.filepath).to eq('mod.c')
     end
 
+    it "looks up a path-qualified module's header and source by its path" do
+      configs = { 'drivers/uart/config' => make_config(tests: make_tests(present: true), mocks: make_mocks(present: false)) }
+
+      allow(@file_finder).to receive(:find_header_file)
+        .with('drivers/uart/config', :ignore).and_return('inc/drivers/uart/config.h')
+      allow(@file_finder).to receive(:find_source_file)
+        .with('drivers/uart/config', :ignore).and_return('src/drivers/uart/config.c')
+
+      @partializer.populate_filepaths(configs)
+
+      expect(configs['drivers/uart/config'].header.filepath).to eq('inc/drivers/uart/config.h')
+      expect(configs['drivers/uart/config'].source.filepath).to eq('src/drivers/uart/config.c')
+    end
+
     it "populates header only for mock-public config" do
       configs = { 'mod' => make_config(tests: make_tests(present: false), mocks: make_mocks(present: true, type: Partials::PUBLIC)) }
 

@@ -28,6 +28,7 @@ class GeneratorPartials
 
     header_filepath = File.join(output_path, header)
     source_filepath = File.join(output_path, source)
+    @file_wrapper.mkdir( File.dirname(header_filepath) ) if path_qualified?(header)
 
     # Binary mode: the function bodies written below may already contain their
     # own line endings verbatim. Windows text mode rewrites every "\n" on
@@ -47,6 +48,7 @@ class GeneratorPartials
   def generate_interface(test:, name:, function_declarations:, includes:, c_module:, output_path:)
     header = @file_path_utils.form_partial_interface_header_filename(name)
     filepath = File.join(output_path, header)
+    @file_wrapper.mkdir( File.dirname(filepath) ) if path_qualified?(header)
 
     # Binary mode: see generate_implementation above.
     @file_wrapper.open(filepath, 'wb') do |file|
@@ -74,6 +76,7 @@ class GeneratorPartials
 
     header = @file_path_utils.form_partial_types_header_filename(name)
     filepath = File.join(output_path, header)
+    @file_wrapper.mkdir( File.dirname(filepath) ) if path_qualified?(header)
 
     # Binary mode: see generate_implementation above.
     @file_wrapper.open(filepath, 'wb') do |file|
@@ -115,6 +118,11 @@ class GeneratorPartials
   end
 
   private
+
+  # A path-qualified module's generated files live in a subdirectory of `output_path`
+  def path_qualified?(filename)
+    File.dirname(filename) != '.'
+  end
 
   # A typedef or a non-typedef struct/enum/union tag definition establishes a type; C treats
   # a second definition of the same type in one translation unit as a redefinition error even

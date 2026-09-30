@@ -403,26 +403,26 @@ class FilePathUtils
   end
 
   def form_partial_interface_header_filename(_module)
-    return PARTIAL_FILENAME_PREFIX + _module + '_interface' + EXTENSION_CORE_HEADER
+    return partial_filename( _module, PARTIAL_FILENAME_PREFIX, '_interface' + EXTENSION_CORE_HEADER )
   end
 
   # A module's typedefs and aggregate (struct/enum/union) definitions are generated into this
   # standalone header, shared by both the implementation and interface headers below, so a
   # module tested and mocked in the same file never has its types defined more than once.
   def form_partial_types_header_filename(_module)
-    return PARTIAL_FILENAME_PREFIX + _module + '_types' + EXTENSION_CORE_HEADER
+    return partial_filename( _module, PARTIAL_FILENAME_PREFIX, '_types' + EXTENSION_CORE_HEADER )
   end
 
   def form_mock_partial_interface_header_filename(_module)
-    return @configurator.cmock_mock_prefix + PARTIAL_FILENAME_PREFIX + _module + '_interface' + EXTENSION_CORE_HEADER
+    return partial_filename( _module, @configurator.cmock_mock_prefix + PARTIAL_FILENAME_PREFIX, '_interface' + EXTENSION_CORE_HEADER )
   end
 
   def form_partial_implementation_header_filename(_module)
-    return PARTIAL_FILENAME_PREFIX + _module + '_impl' + EXTENSION_CORE_HEADER
+    return partial_filename( _module, PARTIAL_FILENAME_PREFIX, '_impl' + EXTENSION_CORE_HEADER )
   end
 
   def form_partial_implementation_source_filename(_module)
-    return PARTIAL_FILENAME_PREFIX + _module + '_impl' + EXTENSION_CORE_SOURCE
+    return partial_filename( _module, PARTIAL_FILENAME_PREFIX, '_impl' + EXTENSION_CORE_SOURCE )
   end
 
   def form_pass_results_filelist(path, files)
@@ -437,6 +437,15 @@ class FilePathUtils
   ### Private ###
 
   private
+
+  # A path-qualified Partial module (`path/module`) keeps its path as a subdirectory of the
+  # generated filename (`path/<prefix>module<suffix>`), matching the shape the `(path, module)`
+  # forms of the Partials directive macros expand to.
+  def partial_filename(_module, prefix, suffix)
+    dir  = File.dirname( _module )
+    name = prefix + File.basename( _module ) + suffix
+    return (dir == '.') ? name : File.join( dir, name )
+  end
 
   # Forms project_build_root/[context/]subdir[/name]; context and name are omitted when nil
   def form_build_context_path(subdir, name: nil, context: nil)

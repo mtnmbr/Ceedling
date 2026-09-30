@@ -639,6 +639,40 @@ describe FilePathUtils do
       expect( @fpu.form_partial_types_header_filename('LightSensor') )
         .to eq('ceedling_partial_LightSensor_types.h')
     end
+
+    it 'keeps a path-qualified module\'s path as a subdirectory' do
+      expect( @fpu.form_partial_types_header_filename('drivers/uart/config') )
+        .to eq('drivers/uart/ceedling_partial_config_types.h')
+    end
+  end
+
+  describe 'path-qualified Partial filenames' do
+    before(:each) do
+      @configurator = double('configurator')
+      allow(@configurator).to receive(:cmock_mock_prefix).and_return('mock_')
+      @fpu = described_class.new({
+        :configurator => @configurator,
+        :file_wrapper => double('file_wrapper')
+      })
+    end
+
+    it 'forms the same filenames as before for a bare module name' do
+      expect( @fpu.form_partial_implementation_header_filename('config') ).to eq('ceedling_partial_config_impl.h')
+      expect( @fpu.form_partial_implementation_source_filename('config') ).to eq('ceedling_partial_config_impl.c')
+      expect( @fpu.form_partial_interface_header_filename('config') ).to eq('ceedling_partial_config_interface.h')
+      expect( @fpu.form_mock_partial_interface_header_filename('config') ).to eq('mock_ceedling_partial_config_interface.h')
+    end
+
+    it 'forms `path/<prefix>module<suffix>` for a path-qualified module, matching the (path, module) macro expansion' do
+      expect( @fpu.form_partial_implementation_header_filename('drivers/uart/config') )
+        .to eq('drivers/uart/ceedling_partial_config_impl.h')
+      expect( @fpu.form_partial_implementation_source_filename('drivers/uart/config') )
+        .to eq('drivers/uart/ceedling_partial_config_impl.c')
+      expect( @fpu.form_partial_interface_header_filename('drivers/uart/config') )
+        .to eq('drivers/uart/ceedling_partial_config_interface.h')
+      expect( @fpu.form_mock_partial_interface_header_filename('drivers/uart/config') )
+        .to eq('drivers/uart/mock_ceedling_partial_config_interface.h')
+    end
   end
 
   describe '#form_named_path' do

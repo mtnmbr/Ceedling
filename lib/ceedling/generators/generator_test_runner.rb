@@ -56,8 +56,9 @@ class GeneratorTestRunner
       # are exposed to the compiler as a flat list of -I search paths, not nested to
       # match whatever directory component a captured UserInclude's filepath happens to
       # carry -- rendering the full path here breaks resolution instead of fixing it.
-      # The exception is an include_path: a spelling reconciliation established resolves
-      # against the test's own search paths as written.
+      # The exception is an include_path: a spelling reconciliation established, or a
+      # path-qualified Partial's generated header path below the test's own Partials
+      # build path, resolves against the test's own search paths as written.
       includes.map do |include|
         if include.is_a?(SystemInclude)
           "<#{include.include_path || include.filepath}>"

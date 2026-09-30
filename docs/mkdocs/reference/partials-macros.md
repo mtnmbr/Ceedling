@@ -34,6 +34,14 @@ their use.
 
 `MOCK_PARTIAL_*` macros expand to a mockable interface header filename.
 
+#### Path-qualified modules
+
+Every module selection macro above also accepts `(path, module)` to select one
+of several same-named modules, e.g. `TEST_PARTIAL_PRIVATE_MODULE(drivers/uart, config)`
+→ `"drivers/uart/ceedling_partial_config_impl.h"`. The matching `_CONFIG` macros
+name such a module as `path/module` (or by its bare name). See
+[Path-qualified modules](../testing-guide/partials/directives.md#path-qualified-modules).
+
 ### Function list configuration macros
 
 These macros are statements (not to be used with `#include` directives) 

@@ -30,6 +30,12 @@ In Ceedling’s early history simplicity won out with the assumption that every 
 
 An `#include` spelled with a path below a search path root (e.g. `#include "ifx/drivers/uart.h"` with only `include/` in `:paths` ↳ `:include`) resolves like it does for the compiler. Each header subdirectory no longer needs its own search path entry. Mocks and runners keep the include spelling.
 
+### Path-qualified Partial modules
+The Partials `_MODULE` directive macros now also accept `(path, module)` —
+e.g. `TEST_PARTIAL_PRIVATE_MODULE(drivers/uart, config)` — to select one of
+several same-named modules, extending #1167's path disambiguation to Partials
+([Path-qualified modules](https://docs.throwtheswitch.org/Ceedling/1.2.0/testing-guide/partials/directives/#path-qualified-modules)).
+
 ### Multiple file extensions per file type
 Added support for multiple [file extensions](https://docs.throwtheswitch.org/Ceedling/1.2.0/configuration/reference/extension/) per type (e.g. `:extension` ↳ `:source` ⇒ `['.c', '.C']`) such as requested in [#947](https://github.com/ThrowTheSwitch/Ceedling/issues/947).
 
@@ -552,7 +558,7 @@ _Notes:_
 * Both `TEST_INCLUDE_PATH()` & `TEST_SOURCE_FILE()` can be disabled with standard C comments.
 * However, preprocessing of mockable header files can now be enabled separately (see `:project` ↳ `:use_test_preprocessor`).
 
-#### `TEST_INCLUDE_PATH(...)` 
+#### `TEST_INCLUDE_PATH(...)`
 
 In short, `TEST_INCLUDE_PATH()` allows you to add a header file search path to the build of the test executable in which it is found. This can mean much shorter compilation command lines and good flexibility for complicated projects. Unlike , `TEST_SOURCE_FILE()` this should _**not**_ be wrapped in conditional compilation preprocessing statements (see documentation for more).
 
@@ -793,7 +799,7 @@ Ceedling’s previous handling of defaults and configuration processing order ce
 
 ### `:project` ↳ `:use_test_preprocessor` has new configuration options
 
-`:project` ↳ `:use_test_preprocessor` is no longer a binary setting (true/false). What is preprocessed can be chosen with the options `:none`, `:tests`, `:mocks`, `:all`. 
+`:project` ↳ `:use_test_preprocessor` is no longer a binary setting (true/false). What is preprocessed can be chosen with the options `:none`, `:tests`, `:mocks`, `:all`.
 
 * `:none` maps to the previous false option (preprocessing disabled).
 * `:all` maps to the previous true option running preprpocessing for all mockable header files and test C files.
@@ -974,7 +980,7 @@ Ceedling’s internal default tool definitions no longer incorporate (undocument
 When Ceedling was very young and tool definitions were relatively simple, Ceedling’s defaults were configured to incorporate commonly used environment variables (e.g. `CC_FLAGS`). This made sense at the time. As Ceedling’s tool processing grew in sophistication, this convention no longer made sense for a variety of reasons. All such references have been removed.
 
 If you want to incorporate environment variables into your tool definitions, you may still do so. See the documentation for inline Ruby string exapnsion and the various options for defining or modifying a tool definition. In short, you may incorporate `"#{ENV['<VAR>']}"` strings into your tooling.
-  
+
 ### Undocumented `:project` ↳ `:debug` has been removed
 
 This project setting existed from Ceedling’s earliest days and was a crude stand-in for command line debug verbosity handling.

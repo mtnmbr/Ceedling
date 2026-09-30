@@ -14,6 +14,7 @@ require 'ceedling/c_extractor/c_extractor'
 require 'ceedling/c_extractor/c_extractor_constants'
 require 'ceedling/c_extractor/c_extractor_types'
 require 'ceedling/constants'
+require 'ceedling/path_matcher'
 
 class Partializer
 
@@ -68,6 +69,8 @@ class Partializer
     end
   end
 
+  # `_module` is a bare name (`sensor`) or path-qualified (`drivers/uart/config`); either is
+  # matched against header and source files by trailing path segments.
   def populate_filepaths(configs)
     configs.each do |_module, config|
       # Every partial involves processing header files
@@ -139,10 +142,10 @@ class Partializer
       # updating this check, so a module mocked via either of those was silently never
       # redirected: its real header (and any static inline/static function bodies in it) stayed
       # #include'd verbatim, compiling straight past the mock instead of being replaced by it.
-      if includes.any? { |include| include.filename.ext().downcase() == _module.downcase() }
+      if includes.any? { |include| module_include?(include, _module) }
         if !config.mocks.type.nil?
           # Insert mockable interface header from remapping of module name
-          _includes << UserInclude.new(
+          _includes << partial_include(
             @file_path_utils.form_partial_interface_header_filename(_module)
           )
           # Remember the module for later removal of original header
@@ -480,16 +483,16 @@ class Partializer
 
     replaced = false
     spliced = includes.map do |include|
-      if !replaced && include.filename.ext().downcase() == name.downcase()
+      if !replaced && module_include?(include, name)
         replaced = true
-        UserInclude.new(replacement)
+        partial_include(replacement)
       else
         include
       end
     end
     # This module's own header wasn't in the includes list at all -- no original
     # position to preserve, so fall back to appending.
-    spliced << UserInclude.new(replacement) unless replaced
+    spliced << partial_include(replacement) unless replaced
 
     # A duplicate/case-variant entry beyond the first match (e.g. both 'module.h' and
     # 'MODULE.H' present) has no meaningful position of its own to preserve -- drop it
@@ -501,12 +504,24 @@ class Partializer
   # Remove includes that match the given module names (case-insensitive)
   # Returns a new array with matching includes removed
   def remove_matching_includes(includes:, modules:)
-    # Normalize module names to lowercase for comparison
-    normalized_modules = modules.map(&:downcase)
-    
-    # Filter out includes (minus extension) that match any module name
     return includes.reject do |include|
-      normalized_modules.include?(include.filename.ext().downcase())
+      modules.any? { |_module| module_include?(include, _module) }
     end
-  end  
+  end
+
+  # Whether `include` is `_module`'s own header (case-insensitive). A path-qualified module
+  # additionally requires the include's path to correspond to the module's path, so a
+  # same-named header from another directory is never mistaken for it.
+  def module_include?(include, _module)
+    return false unless include.filename.ext().downcase() == File.basename(_module).downcase()
+    return true if File.dirname(_module) == '.'
+    return PathMatcher.correspond?( include.filepath.ext('').downcase(), _module.downcase() )
+  end
+
+  # Generated Partial headers of path-qualified modules live in a subdirectory of the test's
+  # Partials build path (itself a search path), so they are #included with that path.
+  def partial_include(filename)
+    return UserInclude.new(filename) if File.dirname(filename) == '.'
+    return UserInclude.new(filename, include_path: filename)
+  end
 end
