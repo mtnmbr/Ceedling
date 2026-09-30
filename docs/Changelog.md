@@ -28,6 +28,8 @@ Added support for properly [distinguishing all C files by filepath](https://docs
 
 In Ceedling’s early history simplicity won out with the assumption that every C file would be uniquely named. But, for example, this meant _dir1/foo.h_ and _dir2/foo.h_ were indistiguishable and Ceedling “guessed” to disambiguate using the ordering of filepath collections. This worked, but there was no ability to use partial paths to explicitly select a specific file. Now Ceedling fully utilizes filepaths to distinguish all elements of a test build. Relative paths are supported in `#include` directives. `test:` build tasks at the command line can optionally include a filepath to distinguish test files of the same name. The previous convention still works where the ordering of paths is identical among compiler search paths and those used to find files for test builds, but now additional path information can be provided to target specific files in your source collection.
 
+An `#include` spelled with a path below a search path root (e.g. `#include "ifx/drivers/uart.h"` with only `include/` in `:paths` ↳ `:include`) resolves like it does for the compiler. Each header subdirectory no longer needs its own search path entry. Mocks and runners keep the include spelling.
+
 ### Multiple file extensions per file type
 Added support for multiple [file extensions](https://docs.throwtheswitch.org/Ceedling/1.2.0/configuration/reference/extension/) per type (e.g. `:extension` ↳ `:source` ⇒ `['.c', '.C']`) such as requested in [#947](https://github.com/ThrowTheSwitch/Ceedling/issues/947).
 

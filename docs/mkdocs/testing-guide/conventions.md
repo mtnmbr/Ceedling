@@ -49,6 +49,15 @@ meant.
   to provide a path to distinguish source files of the same name to be 
   compiled and linked with a test executable.
 
+A path spelled in an `#include` does not need its own directory in
+`:paths` ↳ `:include`. Like a compiler, Ceedling resolves
+`#include "drivers/uart.h"` as `<search path>/drivers/uart.h` for each
+search path in order. A single root such as `include/` is enough for a
+header tree included as `#include "ifx/drivers/uart.h"`. Mocks of such
+headers keep the same spelling (`#include "ifx/drivers/mock_uart.h"`),
+and generated mocks and runners reference the header exactly as your test
+spelled it.
+
 `TEST_SOURCE_FILE()` also takes precedence over the header/source correspondence
 convention above. If a test both `#include`s a header and separately names a
 same-named source via `TEST_SOURCE_FILE()`, the directive's own path wins outright
